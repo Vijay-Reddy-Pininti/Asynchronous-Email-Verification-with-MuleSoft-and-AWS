@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:s3="http://www.mulesoft.org/schema/mule/s3"
+	xmlns:sqs="http://www.mulesoft.org/schema/mule/sqs"
+	xmlns:email="http://www.mulesoft.org/schema/mule/email"
+	xmlns:os="http://www.mulesoft.org/schema/mule/os"
+	xmlns:http="http://www.mulesoft.org/schema/mule/http" 
+	xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+	xmlns="http://www.mulesoft.org/schema/mule/core"
+	xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="
+http://www.mulesoft.org/schema/mule/email http://www.mulesoft.org/schema/mule/email/current/mule-email.xsd 
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd 
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/sqs http://www.mulesoft.org/schema/mule/sqs/current/mule-sqs.xsd
+http://www.mulesoft.org/schema/mule/s3 http://www.mulesoft.org/schema/mule/s3/current/mule-s3.xsd
+http://www.mulesoft.org/schema/mule/os http://www.mulesoft.org/schema/mule/os/current/mule-os.xsd">
+	<http:listener-config name="HTTP_Listener_config" doc:name="HTTP Listener config" doc:id="707839da-f5d1-45de-92f6-bb4c864ffa27" >
+		<http:listener-connection host="0.0.0.0" port="8081" />
+	</http:listener-config>
+	<sqs:config name="Amazon_SQS_Configuration" doc:name="Amazon SQS Configuration" doc:id="70d35e09-d387-4985-a995-62a1be037e41" >
+		<sqs:basic-connection testQueueArn="${aws.test.queue.arn}" accessKey="${aws.accessKey}" secretKey="${aws.secretKey}" region="${aws.region}" />
+	</sqs:config>
+	<s3:config name="Amazon_S3_Configuration" doc:name="Amazon S3 Configuration" doc:id="efed2573-0430-4cf6-9b27-d7d84bb713d7" >
+		<s3:connection accessKey="${aws.accessKey}" secretKey="${aws.secretKey}" region="${aws.region}" />
+	</s3:config>
+	<os:config name="ObjectStore_Config" doc:name="ObjectStore Config" doc:id="0f49a792-c6e3-4bb3-b051-e0d6cb44e0f3" >
+		<os:connection />
+	</os:config>
+	<os:object-store name="Object_store" doc:name="Object store" doc:id="487d4c76-90c5-4ed5-a253-bcbf5062f6f5" maxEntries="100" entryTtl="6" entryTtlUnit="HOURS" expirationInterval="24" config-ref="ObjectStore_Config" expirationIntervalUnit="HOURS"/>
+	<ee:object-store-caching-strategy name="Caching_Strategy" doc:name="Caching Strategy" doc:id="546ff1db-c2ed-466b-a349-5c86a7a29144" keyGenerationExpression="#[p('aws.objectName')]" objectStore="Object_store" />
+	<configuration-properties doc:name="Configuration properties" doc:id="f0b38b46-8a62-4f41-9718-3c7bd50c65c7" file="app.properties" />
+	<email:smtp-config name="Email_SMTP" doc:name="Email SMTP" doc:id="4555c9f7-dbf6-4af4-bc6e-a15397242ff7" >
+		<email:smtp-connection host="smtp.gmail.com" port="587" user="${from_email_user}" password="${from_email_password}" >
+			<email:properties >
+				<email:property key="mail.smtp.starttls.enable" value="true" />
+				<email:property key="mail.smtp.auth" value="true" />
+			</email:properties>
+		</email:smtp-connection>
+	</email:smtp-config>	
+</mule>

@@ -1,0 +1,6 @@
+%dw 2.0
+
+type auto_3dabdd44_5d0b_4e5e_b85b_863777ee0f1f_Output_Variables_placeHolders = {|
+  placeHolders: Array<{|    name: String,     value: String  |}>
+|}
+

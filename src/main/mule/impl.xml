@@ -1,0 +1,111 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:email="http://www.mulesoft.org/schema/mule/email" xmlns:os="http://www.mulesoft.org/schema/mule/os"
+	xmlns:s3="http://www.mulesoft.org/schema/mule/s3"
+	xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core" xmlns:sqs="http://www.mulesoft.org/schema/mule/sqs" xmlns:jms="http://www.mulesoft.org/schema/mule/jms" xmlns:http="http://www.mulesoft.org/schema/mule/http" xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/jms http://www.mulesoft.org/schema/mule/jms/current/mule-jms.xsd
+http://www.mulesoft.org/schema/mule/sqs http://www.mulesoft.org/schema/mule/sqs/current/mule-sqs.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd
+http://www.mulesoft.org/schema/mule/s3 http://www.mulesoft.org/schema/mule/s3/current/mule-s3.xsd
+http://www.mulesoft.org/schema/mule/os http://www.mulesoft.org/schema/mule/os/current/mule-os.xsd
+http://www.mulesoft.org/schema/mule/email http://www.mulesoft.org/schema/mule/email/current/mule-email.xsd">
+	<flow name="sendMessageToQueueFlow" doc:id="ee8c7128-f163-4bcf-ae3d-687ba1919ba4" >
+		<http:listener doc:name="Listener" doc:id="f6f98419-53fb-401e-909d-22f5251e7681" config-ref="HTTP_Listener_config" path="/sendMessage">
+			<http:error-response >
+				<http:body ><![CDATA[#[vars.errorData]]]></http:body>
+			</http:error-response>
+		</http:listener>
+		<ee:transform doc:name="Transform Message" doc:id="a483bcb7-72c1-44b0-8de3-ae0736ac6b6d" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+{
+    "body": write(payload, "application/json")
+}]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<sqs:send-message doc:name="Send message" doc:id="717df4f4-3f7d-4338-afa7-ebb78a38af42" config-ref="Amazon_SQS_Configuration" queueUrl="${aws.queue.url}" target="sqsMessage"/>
+		<ee:transform doc:name="Transform Message" doc:id="a5c9069d-335f-4881-ac8f-a8e5afa3e540" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+{
+	"response": "Message Delivered Successfully!"
+}]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<error-handler >
+			<on-error-propagate enableNotifications="true" logException="true" doc:name="On Error Propagate" doc:id="49e4b399-61ec-415b-8708-53de364098a4" type="ANY">
+				<ee:transform doc:name="Transform Message" doc:id="62a05e69-02d1-46e9-abbb-11a848449ac0" >
+					<ee:message >
+					</ee:message>
+					<ee:variables >
+						<ee:set-variable variableName="errorData" ><![CDATA[%dw 2.0
+output application/json
+---
+{
+	"errorDescription": error.detailedDescription,
+	"errorCause": error.cause
+}]]></ee:set-variable>
+					</ee:variables>
+				</ee:transform>
+			</on-error-propagate>
+		</error-handler>
+	</flow>
+	<flow name="receiveMessagesFromQueueFlow" doc:id="27b3b92c-5755-4d42-9b60-2c0214def182">
+		<sqs:receivemessages doc:name="Receive messages" doc:id="25c7bc50-43dc-411b-aae5-715e14f4ef71" config-ref="Amazon_SQS_Configuration" queueUrl="${aws.queue.url}" frequency="5" timeUnit="SECONDS"/>
+		<logger level="INFO" doc:name="Logger" doc:id="db51b8de-1f76-4dd5-a2bd-fea98c934704" message="Received Messages"/>
+		<ee:transform doc:name="Transform Message" doc:id="37427ade-6caa-4b41-b117-3ccd1ce1046e">
+			<ee:message>
+				<ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+read(payload, "application/json")]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<set-payload value="#[payload]" doc:name="Set Payload" doc:id="4182bbf9-64c9-48e8-955b-323ff2f823f6" />
+		<logger level="INFO" doc:name="Logger" doc:id="af927a49-ef3b-4be6-9301-0e8fdfe9c8ca" message="#[payload]"/>
+		<flow-ref doc:name="fetchTemplateFromS3AndSendEmailFlow" doc:id="cc437287-6f0d-4b8a-993d-058116745db4" name="fetchTemplateFromS3AndSendEmailFlow"/>
+	</flow>
+	<sub-flow name="fetchTemplateFromS3AndSendEmailFlow" doc:id="e8f4c103-4d5c-4688-bdcc-1477ee017bad" >
+		<set-variable value="#[payload]" doc:name="queueMessage" doc:id="441eb0f7-70ae-4db6-af62-dc202489c5fa" variableName="queueMessage"/>
+		<ee:cache doc:name="Cache" doc:id="dbbad5df-fd2e-4de6-a58a-06d1c479d16b" cachingStrategy-ref="Caching_Strategy">
+			<s3:get-object doc:name="Get Object" doc:id="70fb6eb2-9584-470a-898d-e377ba10cfb1" config-ref="Amazon_S3_Configuration" bucketName="${aws.bucketName}" key="${aws.objectName}" />
+		</ee:cache>
+		<ee:transform doc:name="Transform Message" doc:id="3dbc7c8d-1d50-4160-adcf-6b2c1698eec6">
+			<ee:message>
+			</ee:message>
+			<ee:variables >
+				<ee:set-variable variableName="template" ><![CDATA[%dw 2.0
+output text/plain
+---
+payload]]></ee:set-variable>
+			</ee:variables>
+		</ee:transform>
+		<foreach doc:name="For Each" doc:id="05b883c6-a70d-49b5-8e11-4968aa9244b4" collection="#[vars.queueMessage.placeHolders]">
+			<set-variable value='#[%dw 2.0
+&#10;output text/plain
+&#10;---
+&#10;vars.template replace ("{{" ++ payload.name ++ "}}") with payload.value]' doc:name="Set Variable" doc:id="736b6266-4f40-4540-beda-f3de69dfc38c" variableName="template"/>
+		</foreach>
+		<ee:transform doc:name="Transform Message" doc:id="de026777-b3f2-4d96-89e3-8930225abad4" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output text/plain
+---
+vars.template]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<email:send doc:name="Send" doc:id="7029bea0-b25f-4b7c-b363-f7345741ede2" config-ref="Email_SMTP" fromAddress="${from_email_address}" subject="#[vars.queueMessage.subject]">
+			<email:to-addresses>
+				<email:to-address value="#[vars.queueMessage.email]" />
+			</email:to-addresses>
+			<email:body contentType="text/html">
+			</email:body>
+		</email:send>
+		<logger level="INFO" doc:name="Logger" doc:id="0ab5f732-d91c-416b-b1fa-50992a3f1c2d" message="Trigrred Email" />
+	</sub-flow>
+</mule>
