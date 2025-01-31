@@ -37,7 +37,22 @@ Here are the awesome tools we used:
 <p>Local Testing</p>
 
 ```bash
-   http://localhost:8081/sendMessage
+   curl --location 'http://localhost:8081/sendMessage' \
+--header 'Content-Type: application/json' \
+--data-raw '{
+    "email": "<Replace with your email>",
+    "subject": "Verify Your Email Address",
+    "placeHolders": [
+        {
+            "name": "verificationLink",
+            "value": "https://google.com"
+        },
+        {
+            "name": "userName",
+            "value": "<Replace with Name>"
+        }
+    ]
+}'
 ```
 
 ## 📚 References
