@@ -31,7 +31,6 @@ Here are the awesome tools we used:
 
 4. **Run the Mule Flow**:  
    - Run the Mule application locally from Anypoint Studio.
-   - The Mule flow will extract and transform the incoming JSON data and generate the corresponding PDF.
    
 5. **Test the application**:
 
